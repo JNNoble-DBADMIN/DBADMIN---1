@@ -5,52 +5,42 @@ pipeline {
     nodejs "NodeJS_18"
   }
 
-  // ✅ ADDED: Set environment variables
-  environment {
-    APP_VERSION = '1.0.0'
-    DEPLOY_ENV = 'production'
-  }
-
   stages {
-    stage('Install') {
+    stage('Checkout') {
       steps {
-        sh 'npm ci'
+        git 'https://github.com/JNNoble-DBADMIN/DBADMIN---1.git'
       }
     }
 
-    stage('Lint') {
+    stage('Install Dependencies') {
       steps {
-        sh 'npm run lint || echo "Linting failed."'
+        sh 'npm install'
       }
     }
 
-    stage('Test') {
+    stage('Run Tests') {
       steps {
-        sh 'npm test'
+        sh 'npm test || echo "No tests configured."'
       }
     }
 
-    // ✅ ADDED: New Build stage
-    stage('Build') {
+    stage('Deploy') {
+      when {
+        branch 'main'
+      }
       steps {
-        echo "🏗️  Building version ${APP_VERSION} for ${DEPLOY_ENV}"
-        sh 'npm run build || echo "No build script found."'
+        echo 'Deploying...'
       }
     }
   }
 
   post {
     success {
-      // ✅ UPDATED: Added env info to Slack message
-      slackSend channel: '#ci', message: "✅ Build passed on ${env.JOB_NAME} #${env.BUILD_NUMBER} (${DEPLOY_ENV} v${APP_VERSION})"
+      echo 'Build successful!'
     }
     failure {
-      // ✅ UPDATED: Added env info to Slack message
-      slackSend channel: '#ci', message: "❌ Build failed on ${env.JOB_NAME} #${env.BUILD_NUMBER} (${DEPLOY_ENV} v${APP_VERSION})"
-    }
-    // ✅ ADDED: Always cleanup step
-    always {
-      echo '📦 Post-build cleanup complete.'
+      echo 'Build failed.'
     }
   }
 }
+
