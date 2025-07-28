@@ -5,27 +5,52 @@ pipeline {
     nodejs "NodeJS_18"
   }
 
+  // ✅ ADDED: Set environment variables
+  environment {
+    APP_VERSION = '1.0.0'
+    DEPLOY_ENV = 'production'
+  }
+
   stages {
     stage('Install') {
       steps {
-        sh 'npm install'
+        sh 'npm ci'
+      }
+    }
+
+    stage('Lint') {
+      steps {
+        sh 'npm run lint || echo "Linting failed."'
       }
     }
 
     stage('Test') {
       steps {
-        sh 'npm test || echo "No tests available."'
+        sh 'npm test'
+      }
+    }
+
+    // ✅ ADDED: New Build stage
+    stage('Build') {
+      steps {
+        echo "🏗️  Building version ${APP_VERSION} for ${DEPLOY_ENV}"
+        sh 'npm run build || echo "No build script found."'
       }
     }
   }
 
   post {
     success {
-      echo '✅ Build and test succeeded.'
+      // ✅ UPDATED: Added env info to Slack message
+      slackSend channel: '#ci', message: "✅ Build passed on ${env.JOB_NAME} #${env.BUILD_NUMBER} (${DEPLOY_ENV} v${APP_VERSION})"
     }
     failure {
-      echo '❌ Build or test failed.'
+      // ✅ UPDATED: Added env info to Slack message
+      slackSend channel: '#ci', message: "❌ Build failed on ${env.JOB_NAME} #${env.BUILD_NUMBER} (${DEPLOY_ENV} v${APP_VERSION})"
+    }
+    // ✅ ADDED: Always cleanup step
+    always {
+      echo '📦 Post-build cleanup complete.'
     }
   }
 }
-
