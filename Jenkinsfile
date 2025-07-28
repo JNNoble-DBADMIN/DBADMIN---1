@@ -6,40 +6,26 @@ pipeline {
   }
 
   stages {
-    stage('Checkout') {
-      steps {
-        git 'https://github.com/JNNoble-DBADMIN/DBADMIN---1.git'
-      }
-    }
-
-    stage('Install Dependencies') {
+    stage('Install') {
       steps {
         sh 'npm install'
       }
     }
 
-    stage('Run Tests') {
+    stage('Test') {
       steps {
-        sh 'npm test || echo "No tests configured."'
-      }
-    }
-
-    stage('Deploy') {
-      when {
-        branch 'main'
-      }
-      steps {
-        echo 'Deploying...'
+        sh 'npm test || echo "No tests available."'
       }
     }
   }
 
   post {
     success {
-      echo 'Build successful!'
+      echo '✅ Build and test succeeded.'
     }
     failure {
-      echo 'Build failed.'
+      echo '❌ Build or test failed.'
     }
   }
 }
+
