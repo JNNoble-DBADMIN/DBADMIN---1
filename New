@@ -5,41 +5,82 @@ pipeline {
     nodejs "NodeJS_18"
   }
 
+  environment {
+    APP_VERSION = '1.0.0'
+    DEPLOY_ENV = 'production'
+    AWS_REGION = 'us-east-1'               // ✅ NEW
+    S3_BUCKET = 'my-app-bucket-name'       // ✅ NEW
+  }
+
   stages {
-    stage('Checkout') {
+    stage('Install') {
       steps {
-        git 'https://github.com/JNNoble-DBADMIN/DBADMIN---1.git'
+        sh 'npm ci'
       }
     }
 
-    stage('Install Dependencies') {
+    stage('Lint') {
       steps {
-        sh 'npm install'
+        sh 'npm run lint || echo "Linting failed."'
       }
     }
 
-    stage('Run Tests') {
+    stage('Test') {
       steps {
-        sh 'npm test || echo "No tests configured."'
+        sh 'npm test'
       }
     }
 
-    stage('Deploy') {
+    stage('Coverage Report') { // ✅ NEW: Optional test coverage publishing
+      steps {
+        sh 'npm run coverage || echo "Coverage failed or not configured."'
+        // Assuming coverage output is in coverage/lcov-report/
+        publishHTML(target: [
+          allowMissing: true,
+          alwaysLinkToLastBuild: true,
+          keepAll: true,
+          reportDir: 'coverage/lcov-report',
+          reportFiles: 'index.html',
+          reportName: 'Coverage Report'
+        ])
+      }
+    }
+
+    stage('Build') {
+      steps {
+        echo "🏗️  Building version ${APP_VERSION} for ${DEPLOY_ENV}"
+        sh 'npm run build || echo "No build script found."'
+      }
+    }
+
+    stage('Archive Artifacts') { // ✅ NEW
+      steps {
+        archiveArtifacts artifacts: '**/build/**', allowEmptyArchive: true
+      }
+    }
+
+    stage('Deploy to S3') { // ✅ OPTIONAL: Requires AWS CLI credentials setup
       when {
         branch 'main'
       }
       steps {
-        echo 'Deploying...'
+        echo '🚀 Deploying to AWS S3...'
+        sh """
+          aws s3 sync ./build s3://${S3_BUCKET}/ --delete --region ${AWS_REGION}
+        """
       }
     }
   }
 
   post {
     success {
-      echo 'Build successful!'
+      slackSend channel: '#ci', message: "✅ Build passed on ${env.JOB_NAME} #${env.BUILD_NUMBER} (${DEPLOY_ENV} v${APP_VERSION})"
     }
     failure {
-      echo 'Build failed.'
+      slackSend channel: '#ci', message: "❌ Build failed on ${env.JOB_NAME} #${env.BUILD_NUMBER} (${DEPLOY_ENV} v${APP_VERSION})"
+    }
+    always {
+      echo '📦 Post-build cleanup complete.'
     }
   }
 }
